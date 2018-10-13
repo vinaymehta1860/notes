@@ -15,15 +15,15 @@ var db = mongoose.connect('mongodb://localhost/notes-backend', { useNewUrlParser
   }
 );
 
+var apiHandler = require('./services/api');
+
 var app = express();
 
 app.use(bodyParser.json());
 
 app.use(cors());
 
-app.get('/', function(req, res){
-  return res.send("Hello from the Backend.");
-})
+app.use('/', apiHandler);
 
 app.listen(3000, function(){
   console.log("Server running on port 3000");

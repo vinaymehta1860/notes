@@ -4,6 +4,7 @@ var mongoose = require("mongoose"),
 var userNotes = new Schema({
   desc: {type: String},
   timeStamp: {type: Date, default: Date.now},
+  lastUpdated: {type: String},
   user: {type: Schema.Types.ObjectId, ref: 'userTable'}
 });
 

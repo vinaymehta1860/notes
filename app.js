@@ -14,13 +14,13 @@ var db = mongoose.connect('mongodb://localhost/notes-backend', { useNewUrlParser
   }
 );
 
-var apiHandler = require('./services/api');
+var apiHandler = require('./services/registration');
 
 var app = express();
 
 app.use(cors());
 
-app.use('/', apiHandler);
+app.use('/registration', apiHandler);
 
 app.listen(3000, function(){
   console.log("Server running on port 3000");

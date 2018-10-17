@@ -29,7 +29,8 @@ router.post('/owner/newnote', (req, res) => {
     if(response[0].username === req.body.username){
       // Proceed with adding the note into the database as an owner
       var userNote = response[0];
-      req.body.note.lastUpdated = Date.now();
+      const currentTime = new Date();
+      req.body.note.lastUpdated = currentTime.toString();
       userNote.notes.owner.push(req.body.note);
       userNote.save();
       res.send("Note added successfully.! HURRAH..!!");

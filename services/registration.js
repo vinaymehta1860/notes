@@ -37,7 +37,7 @@ router.post('/signup', function(req, res){
       req.body.sessionToken = hash;
 
       var newUser = new users(req.body);
-      var currentTime = new Date();
+      const currentTime = new Date();
       newUser.loginHistory.push(currentTime.toString());
       //Good use of promises to know if save was actually successfull or not
       newUser.save()
@@ -96,7 +96,7 @@ router.post('/signin', function(req, res){
             }
             if(resp){
               var updateLoginHistory = response[0];
-              var currentTime = new Date();
+              const currentTime = new Date();
               updateLoginHistory.loginHistory.push(currentTime.toString());
               updateLoginHistory.save();
               res.send("User successfully logged in. Username: " + req.body.username + ". Hash: " + hash);

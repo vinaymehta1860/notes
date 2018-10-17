@@ -19,14 +19,14 @@ router.get('/', function(req, res){
 //                 Email    -> type: String
 // Req URI: http://localhost:3000/registration/signup 
 router.post('/signup', function(req, res){
-  users.find({username: req.body.username}, function(err, response){
+  users.find({email: req.body.email}, function(err, response){
     if(err){
       // There's something wrong with your query for database access
       res.send("Error while accessing databse. Please check your backend query.");
     }
     
     if(!response.length){
-      // Handling the case if no user with the provided username is there
+      // Handling the case if no user with the provided email is there
       // Creating a new user with the provided username and password
       
       //Generating sessionToken for the user
@@ -37,6 +37,8 @@ router.post('/signup', function(req, res){
       req.body.sessionToken = hash;
 
       var newUser = new users(req.body);
+      var currentTime = new Date();
+      newUser.loginHistory.push(currentTime.toString());
       //Good use of promises to know if save was actually successfull or not
       newUser.save()
               .then(() => {
@@ -51,7 +53,7 @@ router.post('/signup', function(req, res){
     else{
       // Handling the case where user already exists in database.
       // Throw an error
-      res.send("ERROR.! User already exists. Please provide a different username.!");
+      res.send("ERROR.! Email already registered. Please provide a different email.!");
     }
   });
 });
@@ -93,6 +95,10 @@ router.post('/signin', function(req, res){
               res.send("Error while performing update query.");
             }
             if(resp){
+              var updateLoginHistory = response[0];
+              var currentTime = new Date();
+              updateLoginHistory.loginHistory.push(currentTime.toString());
+              updateLoginHistory.save();
               res.send("User successfully logged in. Username: " + req.body.username + ". Hash: " + hash);
             }
           });

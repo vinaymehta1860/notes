@@ -1,5 +1,6 @@
 const express = require("express"),
       bodyParser = require("body-parser"),
+      crypto = require('crypto'),
       router = express.Router();
 
 router.use(bodyParser.json());
@@ -14,9 +15,10 @@ router.get('/', (req, res) => {
 // Route for new note as an owner
 // Params required sessionToken -> type: String
 //                 username -> type: String
-//                 note: { desc -> type: String }
+//                 note: { title -> type: String, desc -> type: String }
 // Request URI -> http://localhost:3000/notes/owner/newnote
 router.post('/owner/newnote', (req, res) => {
+  console.log("Route for new note as an owner hit.");
   // Check if the sessionToken is valid or not
   users.find({sessionToken: req.body.sessionToken}, function(err, response){
     if(err){
@@ -31,6 +33,13 @@ router.post('/owner/newnote', (req, res) => {
       var userNote = response[0];
       const currentTime = new Date();
       req.body.note.lastUpdated = currentTime.toString();
+      
+      // Generating unique id for the note
+      const hash = crypto.createHash('sha256')
+                      .update(Math.random().toString())
+                      .digest('hex');
+      
+      req.body.note.note_id = hash.toString();
       userNote.notes.owner.push(req.body.note);
       userNote.save();
       res.send("Note added successfully.! HURRAH..!!");

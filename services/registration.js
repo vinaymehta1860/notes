@@ -10,6 +10,7 @@ var users = require("../models/users");
 
 //Simple test route
 router.get('/', function(req, res){
+  console.log("Test route for registration");
   return res.send("Hello from Node App.");
 });
 
@@ -19,6 +20,7 @@ router.get('/', function(req, res){
 //                 Email    -> type: String
 // Req URI: http://localhost:3000/registration/signup 
 router.post('/signup', function(req, res){
+  console.log("Route for signup hit.");
   users.find({email: req.body.email}, function(err, response){
     if(err){
       // There's something wrong with your query for database access
@@ -63,6 +65,7 @@ router.post('/signup', function(req, res){
 //                 Password -> type: String
 // Req URI: http://localhost:3000/registration/signin
 router.post('/signin', function(req, res){
+  console.log("Route for signin hit.");
   users.find({username: req.body.username, password: req.body.password}, function(err, response){
     if(err){
       // There's something wrong with your query for database access
@@ -84,7 +87,7 @@ router.post('/signin', function(req, res){
         }
         else{
           // Generating sessionToken for the user
-          var hash = crypto.createHmac('sha256', req.body.username)
+          var hash = crypto.createHmac('sha256', req.body.email)
                            .update(Date.now().toString())
                            .digest('hex');
           
@@ -115,6 +118,7 @@ router.post('/signin', function(req, res){
 // Params required: Username -> type: String
 // Req URI: http://localhost:3000/registration/logout
 router.post('/logout', function(req, res){
+  console.log("Route for logout hit.");
   users.find({username: req.body.username}, (err, response) => {
     if(err){
       // There's something wrong with your query for database access

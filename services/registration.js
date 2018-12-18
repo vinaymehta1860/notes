@@ -87,7 +87,7 @@ router.post('/signin', function(req, res){
         }
         else{
           // Generating sessionToken for the user
-          var hash = crypto.createHmac('sha256', req.body.email)
+          var hash = crypto.createHmac('sha256', req.body.username)
                            .update(Date.now().toString())
                            .digest('hex');
           

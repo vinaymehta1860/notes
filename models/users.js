@@ -6,7 +6,7 @@ var userTable = new Schema({
   password: {type: String, required: true},
   email: {type: String, unique: true, required: true},
   sessionToken: {type: String, unique: true},
-  dateCreated: {type: Date, default: Date.now},
+  dateCreated: {type: String, default: new Date().toString()},
   loginHistory: [String]
 });
 

@@ -5,10 +5,10 @@ var userNotes = new Schema({
   title: {type: String},
   desc: {type: String},
   note_id: {type: String, unique: true},
-  dataCreated: {type: Date, default: Date.now},
-  lastUpdated: {type: Date},
+  dateCreated: {type: String, default: new Date().toString()},
+  lastUpdated: {type: String},
   sharedWith: [String],
-  permissions: [String],
+  permissions: {type: String},
   owner: {type: Schema.Types.ObjectId, ref: 'userTable'}
 });
 

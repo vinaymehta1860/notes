@@ -7,23 +7,7 @@ var userTable = new Schema({
   email: {type: String, unique: true, required: true},
   sessionToken: {type: String, unique: true},
   dateCreated: {type: Date, default: Date.now},
-  loginHistory: [String],
-  notes: {
-    owner: [{
-      title: {type: String},
-      desc: {type: String},
-      note_id: {type: String, unique: true},
-      dataCreated: {type: Date, default: Date.now},
-      lastUpdated: {type: String}
-    }],
-    shared: [{
-      title: {type: String},
-      desc: {type: String},
-      note_id: {type: String, unique: true},
-      dataCreated: {type: Date, default: Date.now},
-      lastUpdated: {type: String}
-    }]
-  }
+  loginHistory: [String]
 });
 
 module.exports = mongoose.model('userTable', userTable);

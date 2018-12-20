@@ -8,7 +8,7 @@ router.use(bodyParser.json());
 // MongoDB User Object to use in file
 var users = require("../models/users");
 
-//Simple test route
+//Sample test route
 router.get('/', function(req, res){
   console.log("Test route for registration");
   return res.send("Hello from Node App.");
@@ -16,15 +16,15 @@ router.get('/', function(req, res){
 
 // Route for sign up
 // Params required: Username -> type: String
-//                 Password -> type: String
-//                 Email    -> type: String
+//                  Password -> type: String
+//                  Email    -> type: String
 // Req URI: http://localhost:3000/registration/signup 
 router.post('/signup', function(req, res){
   console.log("Route for signup hit.");
   users.find({email: req.body.email}, function(err, response){
     if(err){
       // There's something wrong with your query for database access
-      res.send("Error while accessing databse. Please check your backend query.");
+      res.send({success: false, message: "Error while accessing database. Please check your backend query."});
     }
     
     if(!response.length){
@@ -44,18 +44,18 @@ router.post('/signup', function(req, res){
       //Good use of promises to know if save was actually successfull or not
       newUser.save()
               .then(() => {
-                res.send("User successfully created. Username: " + req.body.username + ". Password: " + req.body.password
-                          + ". Email: " + req.body.email + ". Hash: " + hash);
+                res.send({success: true, message: "User successfully created. Username: " + req.body.username + ". Password: " + req.body.password
+                + ". Email: " + req.body.email + ". Hash: " + hash});
               })
               .catch((err) => {
                 console.log("Error while performing save -> " + err);
-                res.send("Error while performing save function. Please see the console log on the server side.");
+                res.send({success: false, message: "Error while performing save function. Please see the console log on the server side."});
               })
     }
     else{
       // Handling the case where user already exists in database.
       // Throw an error
-      res.send("ERROR.! Email already registered. Please provide a different email.!");
+      res.send({success: false, message: "ERROR.! Email already registered. Please provide a different email.!"});
     }
   });
 });
@@ -69,7 +69,7 @@ router.post('/signin', function(req, res){
   users.find({username: req.body.username, password: req.body.password}, function(err, response){
     if(err){
       // There's something wrong with your query for database access
-      res.send("Error while accessing databse. Please check your backend query.");
+      res.send({success: false, message: "Error while accessing database. Please check your backend query."});
     }
 
     if(response.length){
@@ -77,17 +77,17 @@ router.post('/signin', function(req, res){
       users.find({username: req.body.username}, (err, response) => {
         if(err){
           // There's something wrong with your query for database access
-          res.send("Error while accessing databse. Please check your backend query.");
+          res.send({success: false, message: "Error while accessing database. Please check your backend query."});
         }
 
         // Check if there already is a sessionToken
         // If there is, return the same or else create a new one
         if(response[0].sessionToken !== null){
-          res.send("User already logged in. Username: " + req.body.username + ". Hash: " + response[0].sessionToken);
+          res.send({success: true, message: "User already logged in. Username: " + req.body.username + ". Hash: " + response[0].sessionToken});
         }
         else{
           // Generating sessionToken for the user
-          var hash = crypto.createHmac('sha256', req.body.email)
+          var hash = crypto.createHmac('sha256', req.body.username)
                            .update(Date.now().toString())
                            .digest('hex');
           
@@ -95,21 +95,22 @@ router.post('/signin', function(req, res){
           // TODO: Update the callback function to be a promise
           users.updateOne({_id: response[0]._id}, {sessionToken: hash}, (err, resp) => {
             if(err){
-              res.send("Error while performing update query.");
+              res.send({success: false, message: "Error while performing update query."});
             }
             if(resp){
               var updateLoginHistory = response[0];
               const currentTime = new Date();
               updateLoginHistory.loginHistory.push(currentTime.toString());
               updateLoginHistory.save();
-              res.send("User successfully logged in. Username: " + req.body.username + ". Hash: " + hash);
+              // FUTURE WORK: May be use promises for the save operation to handle sending back responses
+              res.send({success: true, message: "User successfully logged in. Username: " + req.body.username + ". Hash: " + hash});
             }
           });
         }
       });
     }
     else{
-      res.send("ERROR. Invalid username/password.");
+      res.send({success: false, message: "ERROR. Invalid username/password."});
     }
   });
 });
@@ -122,12 +123,12 @@ router.post('/logout', function(req, res){
   users.find({username: req.body.username}, (err, response) => {
     if(err){
       // There's something wrong with your query for database access
-      res.send("Error while accessing databse. Please check your backend query.");
+      res.send({success: false, message: "Error while accessing database. Please check your backend query."});
     }
 
     if(!response.length){
       // Error with the username that is being sent
-      res.send("Buddy, there's something seriously wrong in the frontend with usernames for all the users. Check and send the request again.");
+      res.send({success: false, message: "There's something wrong in the frontend with usernames for all the users. Check and send the request again."});
     }
     else{
       // Updating the sessionToken when a user logs out
@@ -135,10 +136,10 @@ router.post('/logout', function(req, res){
       users.updateOne({_id: response[0]._id}, {sessionToken: null}, (err, resp) => {
         if(err){
           console.log("Error -> " + err);
-          res.send("Error while performing update query.");
+          res.send({success: false, message: "Error while performing update query."});
         }
         else if(resp){
-          res.send("Update successfull");
+          res.send({success: true, message: "Update successfull"});
         }
       });
     }

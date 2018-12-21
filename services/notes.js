@@ -54,8 +54,8 @@ router.post('/newnote', (req, res) => {
 //                  title         : type -> String
 //                  desc          : type -> String
 //                  lastUpdated   : type -> String
-// Request URI: http://localhost:3000/notes/edit/note
-router.post('/edit/note', (req, res) => {
+// Request URI: http://localhost:3000/notes/edit
+router.post('/edit', (req, res) => {
   console.log("Route for editing the note hit.");
   console.log("Note_id --> " + req.body.note_id);
   
@@ -103,6 +103,33 @@ router.post('/edit/note', (req, res) => {
   })
   .catch((err) => {
     res.send({success: false, message: "There's something wrong with the provided username and/or sessionToken."});
+  });
+});
+
+// Route for deleting a note
+// Required params: username: type -> username
+//                  note_id : type -> username
+// Request URI: http://localhost:3000/notes/delete
+router.post('/delete', (req, res) => {
+  notesModel.find({note_id: req.body.note_id})
+  .then((response) => {
+    // Get the username from userTable from the owner of the current note
+    usersModel.find({_id: response[0].owner})
+    .then((resp) => {
+      notesModel.deleteOne({note_id: req.body.note_id, owner: resp[0]._id.toString()})
+      .then((resp1) => {
+        res.send({success: true, message: "Note successfully deleted."});
+      })
+      .catch((err) => {
+        res.send({success: false, message: "There was an error while performing the delete operation for the requested note."});
+      })
+    })
+    .catch((err) => {
+      res.send({success: false, message: "There was an error with comparing the _id field. Figure out another way of getting the user from _id field"});
+    })
+  })
+  .catch((err) => {
+    res.send({success: false, message: "We couldn't find any note with the provided note_id."});
   });
 });
 

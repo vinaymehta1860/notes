@@ -13,10 +13,10 @@ router.get('/', (req, res) => {
   res.send({success: true, message: "Request handled successfully."});
 });
 
-//Route for adding a new note
-// Params required sessionToken -> type: String
-//                 username -> type: String
-//                 note: { title       -> type: String, 
+// Route for adding a new note
+// Params required: sessionToken -> type: String
+//                  username     -> type: String
+//                  note: { title       -> type: String, 
 //                         desc        -> type: String,
 //                         dateCreated -> type: Date,
 //                         lastUpdated -> type: String }
@@ -132,5 +132,73 @@ router.post('/delete', (req, res) => {
     res.send({success: false, message: "We couldn't find any note with the provided note_id."});
   });
 });
+
+// Route for getting all the notes of a user
+// Required params: username      : type -> String
+//                  sessionToken  : type -> String
+// Request URI -> http://localhost:3000/notes/allnotes
+router.post('/allnotes', (req, res) => {
+  // First get the _id field of the user who is requesting to get all of his notes from usersModel
+  console.log("Username -> " + req.body.username + ". SessionToken -> " + req.body.sessionToken);
+  usersModel.find({username: req.body.username, sessionToken: req.body.sessionToken})
+  .then((response) => {
+    // Now that we've the user object, we can perform a query to get all of the notes where he is the owner and
+    //  shared user. Get these notes object seperately so that it can be easier for front end to render them.
+    
+    // Creating an empty response object which will have user's notes
+    var notes = {};
+
+    // Getting all the notes where the user is owner
+    notesModel.find({owner: response[0]._id})
+    .then((resp) => {
+      notes.owner = resp;
+
+      // Now get all the notes that are shared with the current user
+      notesModel.find({sharedWith: response[0].username})
+      .then((resp) => {
+        notes.shared = resp;
+
+        res.send({success: true, payload: {notes: notes, message: "Successfully retrieved all the notes for current user."}});
+      })
+      .catch((err) => {
+        res.send({success: true, payload: {notes: notes, message: "There was an error while retrieving all the shared notes with current user. Error -> " + err}});
+      });
+    })
+    .catch((err) => {
+      res.send({success: false, message: "There was an error retrieving the notes where the user is owner. Please check your server. Error -> " +  err});
+    });
+  })
+  .catch((err) => {
+    res.send({success: false, message: "We couldn't find any user with the provided username. Error -> " +  err});
+  })
+});
+
+// Function to get all the notes where the provided user_id is the owner
+function getOwnerNotes (user_id) {
+  notesModel.find({owner: user_id})
+  .then((response) => {
+    console.log("Getting owner notes successfull. Response -> " + response);
+    console.log("Owner return object -> " + {success: true, message: response});
+    return {success: true, message: response};
+  })
+  .catch((err) => {
+    console.og("Onwer notes were not retrieved successfully. Error -> " + err);
+    return {success: false, message: "We had a problem getting all the notes for the specified user where he is the owner."};
+  });
+}
+
+// Function to get all the notes that are shared with the user whose username is provided
+function getSharedNotes (username) {
+  notesModel.find({sharedWith: username.toString()})
+  .then((response) => {
+    console.log("Getting shared notes successfull. Response -> " + response);
+    console.log("Shared return object -> " + {success: true, message: response});
+    return {success: true, message: response};
+  })
+  .catch((err) => {
+    console.log("Shared notes were not retrieved successfully. Error -> " + err);
+    return {success: false, message: "We had a problem getting all the notes for the specified user where he is the shared user."};
+  });
+}
 
 module.exports = router;

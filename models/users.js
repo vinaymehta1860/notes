@@ -11,6 +11,3 @@ var userTable = new Schema({
 });
 
 module.exports = mongoose.model('userTable', userTable);
-
-// Need to update the Schema because now there's no way to ensure that the note_id 
-//  in owner and shared object is unique, which is what we want

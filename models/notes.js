@@ -8,7 +8,7 @@ var userNotes = new Schema({
   dateCreated: {type: String, default: new Date().toString()},
   lastUpdated: {type: String},
   sharedWith: [String],
-  permissions: {type: String},
+  canEdit: {type: Boolean},
   owner: {type: Schema.Types.ObjectId, ref: 'userTable'}
 });
 

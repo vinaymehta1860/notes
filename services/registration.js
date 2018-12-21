@@ -15,9 +15,10 @@ router.get('/', function(req, res){
 });
 
 // Route for sign up
-// Params required: Username -> type: String
-//                  Password -> type: String
-//                  Email    -> type: String
+// Params required: Username    -> type: String
+//                  Password    -> type: String
+//                  Email       -> type: String
+//                  dateCreated -> type: String
 // Req URI: http://localhost:3000/registration/signup 
 router.post('/signup', function(req, res){
   console.log("Route for signup hit.");

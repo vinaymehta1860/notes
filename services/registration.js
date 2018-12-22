@@ -117,11 +117,12 @@ router.post('/signin', function(req, res){
 });
 
 // Route for logout
-// Params required: Username -> type: String
+// Params required: Username      -> type: String
+//                  sessionToken  -> type: String
 // Req URI: http://localhost:3000/registration/logout
 router.post('/logout', function(req, res){
   console.log("Route for logout hit.");
-  users.find({username: req.body.username}, (err, response) => {
+  users.find({username: req.body.username, sessionToken: req.body.sessionToken}, (err, response) => {
     if(err){
       // There's something wrong with your query for database access
       res.send({success: false, message: "Error while accessing database. Please check your backend query."});
@@ -137,7 +138,7 @@ router.post('/logout', function(req, res){
       users.updateOne({_id: response[0]._id}, {sessionToken: null}, (err, resp) => {
         if(err){
           console.log("Error -> " + err);
-          res.send({success: false, message: "Error while performing update query."});
+          res.send({success: false, message: "Error while performing update query. Error -> " + err});
         }
         else if(resp){
           res.send({success: true, message: "Update successfull"});

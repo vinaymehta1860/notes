@@ -173,6 +173,73 @@ router.post('/allnotes', (req, res) => {
   })
 });
 
+// Route for sharing a note with other users
+// Required params: username      : type -> String
+//                  sessionToken  : type -> String
+//                  note_id       : type -> String
+//                  usernames     : type -> Array of usernames to share a note with
+// Optional params: canEdit       : type -> Boolean
+// Request URI -> http://localhost:3000/notes/share
+router.post('/share', (req, res) => {
+  // First check if a user who is trying to share a note is the owner of that note or not
+  usersModel.findOne({username: req.body.username, sessionToken: req.body.sessionToken})
+  .then((response) => {
+    /*
+      This is a little complicated step. Below is the explanation.
+      First we'll verify if the current user is the owner of the note that he's trying to share.
+      If yes, then we'll update the sharedWith array to add the specified members.
+      Once we've added the shared users, we'll check if the canEdit flag is true, if yes then we'll update that as well.
+      All of this will be done in one update query so might be little complicated to understand
+      if you're looking at the code after a while.
+    */
+    if (req.body.canEdit === true) {
+      notesModel.updateOne({note_id: req.body.note_id, owner: response._id}, {canEdit: req.body.canEdit, $push: {sharedWith: {$each: req.body.usernames}}})
+      .then((resp) => {
+        res.send({success: true, message: "Note successfully shared and also changed the canEdit flag."});
+      })
+      .catch((err) => {
+        res.send({success: false, message: "There was an error while adding the specified users as shared users. Error -> " + err});
+      });
+    }
+    else {
+      notesModel.updateOne({note_id: req.body.note_id, owner: response[0]._id}, {$push: {sharedWith: {$each: req.body.usernames}}})
+      .then((resp) => {
+        res.send({success: true, message: "Note successfully shared without changing the canEdit flag."});
+      })
+      .catch((err) => {
+        res.send({success: false, message: "There was an error while adding the specified users as shared users. Error -> " + err});
+      });
+    }
+  })
+  .catch((err) => {
+    res.send({success: false, message: "There was an error while finding the user who wants to share this note. Error -> " + err});
+  });
+});
+
+// Route for changing notes canEdit flag
+// Required params: username      : type -> String
+//                  sessionToken  : type -> String
+//                  note_id       : type -> String
+//                  canEdit       : type -> Boolean
+// Request URI -> http://localhost:3000/notes/permissions
+router.post('/permissions', (req, res) => {
+  usersModel.findOne({username: req.body.username, sessionToken: req.body.sessionToken})
+  .then((response) => {
+    // Now verify if the current user is owner of that note or not.
+    // If yes, then go ahead and make the change to the permission.
+    notesModel.updateOne({note_id: req.body.note_id, owner: response._id}, {canEdit: req.body.canEdit})
+    .then((resp) => {
+      res.send({success: true, message: "Note's permissions were successfully changed."});
+    })
+    .catch((err) => {
+      res.send({success: false, message: "There was an error while updating the permissions of this note. Error -> " + err});
+    });
+  })
+  .catch((err) => {
+    res.send({success: false, message: "There was an error while finding the user who wants to change the permissions of this note. Error -> " + err});
+  });
+});
+
 // Function to get all the notes where the provided user_id is the owner
 function getOwnerNotes (user_id) {
   notesModel.find({owner: user_id})

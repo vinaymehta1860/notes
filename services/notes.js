@@ -193,7 +193,7 @@ router.post('/share', (req, res) => {
       if you're looking at the code after a while.
     */
     if (req.body.canEdit === true) {
-      notesModel.updateOne({note_id: req.body.note_id, owner: response._id}, {canEdit: req.body.canEdit, $push: {sharedWith: {$each: req.body.usernames}}})
+      notesModel.updateOne({note_id: req.body.note_id, owner: response._id}, {canEdit: req.body.canEdit, $addToSet: {sharedWith: {$each: req.body.usernames}}})
       .then((resp) => {
         res.send({success: true, message: "Note successfully shared and also changed the canEdit flag."});
       })
@@ -202,7 +202,7 @@ router.post('/share', (req, res) => {
       });
     }
     else {
-      notesModel.updateOne({note_id: req.body.note_id, owner: response[0]._id}, {$push: {sharedWith: {$each: req.body.usernames}}})
+      notesModel.updateOne({note_id: req.body.note_id, owner: response._id}, {$addToSet: {sharedWith: {$each: req.body.usernames}}})
       .then((resp) => {
         res.send({success: true, message: "Note successfully shared without changing the canEdit flag."});
       })

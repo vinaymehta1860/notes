@@ -107,30 +107,26 @@ router.post('/edit', (req, res) => {
 });
 
 // Route for deleting a note
-// Required params: username: type -> username
-//                  note_id : type -> username
+// Required params: username      : type -> username
+//                  sessionToken  : type -> String
+//                  note_id       : type -> username
 // Request URI: http://localhost:3000/notes/delete
 router.post('/delete', (req, res) => {
-  notesModel.find({note_id: req.body.note_id})
+  usersModel.findOne({username: req.body.username, sessionToken: req.body.sessionToken})
   .then((response) => {
-    // Get the username from userTable from the owner of the current note
-    usersModel.find({_id: response[0].owner})
+    // Verify if the user is the owner of the note that he wants to delete or not.
+    // If yes, then proceed with deleting the note.
+    notesModel.deleteOne({note_id: req.body.note_id, owner: response._id})
     .then((resp) => {
-      notesModel.deleteOne({note_id: req.body.note_id, owner: resp[0]._id.toString()})
-      .then((resp1) => {
-        res.send({success: true, message: "Note successfully deleted."});
-      })
-      .catch((err) => {
-        res.send({success: false, message: "There was an error while performing the delete operation for the requested note."});
-      })
+      res.send({success: true, message: "Note successfully deleted."});
     })
     .catch((err) => {
-      res.send({success: false, message: "There was an error with comparing the _id field. Figure out another way of getting the user from _id field"});
-    })
+      res.send({success: false, message: "There was an error while deleting the note from database. Error -> " + err});
+    });
   })
   .catch((err) => {
-    res.send({success: false, message: "We couldn't find any note with the provided note_id."});
-  });
+    res.send({success: false, message: "There was an error while finding the user who wants to delete the note. Error -> " + err});
+  })
 });
 
 // Route for getting all the notes of a user

@@ -216,6 +216,30 @@ router.post('/share', (req, res) => {
   });
 });
 
+// Route for un-sharing a note
+// Required params: username      : type -> String
+//                  sessionToken  : type -> String
+//                  note_id       : type -> String
+// Request URI -> http://localhost:3000/notes/unshare
+router.post('/unshare', (req, res) => {
+  // First find the _id of the user who wants to unshare the note
+  usersModel.findOne({username: req.body.username, sessionToken: req.body.sessionToken})
+  .then((response) => {
+    // Now verify if the user is owner of the note or not.
+    // If yes, then unshare the note with everyone and change the canEdit flag
+    notesModel.updateOne({note_id: req.body.note_id, owner: response._id}, {canEdit: false, $set: {sharedWith: []} })
+    .then((resp) => {
+      res.send({success: true, message: "Note successfully unshared."});
+    })
+    .catch((err) => {
+      res.send({success: false, message: "There was an error while removing the users with whom the note is shared. Error -> " + err});
+    })
+  })
+  .catch((err) => {
+    res.send({success: false, message: "There was an error while finding the user who wants to unshare this note. Error -> " + err});
+  });
+});
+
 // Route for changing notes canEdit flag
 // Required params: username      : type -> String
 //                  sessionToken  : type -> String

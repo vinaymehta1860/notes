@@ -53,15 +53,12 @@ router.post("/signup", function(req, res) {
         .then(() => {
           res.send({
             success: true,
-            message:
-              "User successfully created. Username: " +
-              req.body.username +
-              ". Password: " +
-              req.body.password +
-              ". Email: " +
-              req.body.email +
-              ". Hash: " +
-              hash
+            message: "User successfully created.",
+            payload: {
+              username: req.body.username,
+              email: req.body.email,
+              sessionToken: hash
+            }
           });
         })
         .catch(err => {
@@ -119,11 +116,11 @@ router.post("/signin", function(req, res) {
           if (response[0].sessionToken !== null) {
             res.send({
               success: true,
-              message:
-                "User already logged in. Username: " +
-                req.body.username +
-                ". Hash: " +
-                response[0].sessionToken
+              message: "User already logged in.",
+              payload: {
+                username: req.body.username,
+                sessionToken: response[0].sessionToken
+              }
             });
           } else {
             // Generating sessionToken for the user

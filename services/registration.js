@@ -14,12 +14,14 @@ router.get("/", function(req, res) {
   return res.send("Hello from Node App.");
 });
 
-// Route for sign up
-// Params required: Username    -> type: String
-//                  Password    -> type: String
-//                  Email       -> type: String
-//                  dateCreated -> type: String
-// Req URI: http://localhost:4000/registration/signup
+/*
+ * Route for sign up
+ * Params required: Username    -> type: String
+ *                  Password    -> type: String
+ *                  Email       -> type: String
+ *                  dateCreated -> type: String
+ * Req URI: http://localhost:4000/registration/signup
+ */
 router.post("/signup", function(req, res) {
   console.log("Route for signup hit.");
   users.find({ email: req.body.email }, function(err, response) {
@@ -81,10 +83,12 @@ router.post("/signup", function(req, res) {
   });
 });
 
-//Route for sign in
-//Params required: Username -> type: String
-//                 Password -> type: String
-// Req URI: http://localhost:4000/registration/signin
+/*
+ * Route for sign in
+ * Params required: Username -> type: String
+ *                  Password -> type: String
+ * Req URI: http://localhost:4000/registration/signin
+ */
 router.post("/signin", function(req, res) {
   console.log("Route for signin hit.");
   users.find(
@@ -153,7 +157,11 @@ router.post("/signin", function(req, res) {
                       "User successfully logged in. Username: " +
                       req.body.username +
                       ". Hash: " +
-                      hash
+                      hash,
+                    payload: {
+                      username: response[0].username,
+                      sessionToken: hash
+                    }
                   });
                 }
               }
@@ -170,10 +178,51 @@ router.post("/signin", function(req, res) {
   );
 });
 
-// Route for logout
-// Params required: Username      -> type: String
-//                  sessionToken  -> type: String
-// Req URI: http://localhost:4000/registration/logout
+/*
+ * Route to check if sessionToken is valid or not
+ * Params required:  Username      -> type: String
+ *                   sessionToken  -> type: String
+ * Req URI: http://localhost:4000/registration/verifyLoggedInUser
+ */
+router.post("/verifyLoggedInUser", (req, res) => {
+  console.log("Route for verification hit.");
+  users.findOne(
+    { username: req.body.username, sessionToken: req.body.sessionToken },
+    (err, response) => {
+      if (err) {
+        res.send({
+          success: false,
+          message:
+            "Error while accessing database. Please check your backend query."
+        });
+      }
+
+      if (!response) {
+        res.send({
+          success: false,
+          message: "Invalid Username/sessionToken."
+        });
+      } else {
+        // This user is already signed in. Send a success response.
+        res.send({
+          success: true,
+          message: "User already logged in.",
+          payload: {
+            username: response.username,
+            sessionToken: response.sessionToken
+          }
+        });
+      }
+    }
+  );
+});
+
+/*
+ * Route for logout
+ * Params required: Username      -> type: String
+ *                  sessionToken  -> type: String
+ * Req URI: http://localhost:4000/registration/logout
+ */
 router.post("/logout", function(req, res) {
   console.log("Route for logout hit.");
   users.find(

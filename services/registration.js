@@ -57,6 +57,7 @@ router.post("/signup", function(req, res) {
             success: true,
             message: "User successfully created.",
             payload: {
+              firstname: req.body.firstname,
               username: req.body.username,
               email: req.body.email,
               sessionToken: hash
@@ -122,6 +123,7 @@ router.post("/signin", function(req, res) {
               success: true,
               message: "User already logged in.",
               payload: {
+                firstname: response[0].firstname,
                 username: req.body.username,
                 sessionToken: response[0].sessionToken
               }
@@ -153,12 +155,9 @@ router.post("/signin", function(req, res) {
                   // FUTURE WORK: May be use promises for the save operation to handle sending back responses
                   res.send({
                     success: true,
-                    message:
-                      "User successfully logged in. Username: " +
-                      req.body.username +
-                      ". Hash: " +
-                      hash,
+                    message: "User successfully logged in.",
                     payload: {
+                      firstname: response[0].firstname,
                       username: response[0].username,
                       sessionToken: hash
                     }
@@ -208,6 +207,7 @@ router.post("/verifyLoggedInUser", (req, res) => {
           success: true,
           message: "User already logged in.",
           payload: {
+            firstname: response.firstname,
             username: response.username,
             sessionToken: response.sessionToken
           }

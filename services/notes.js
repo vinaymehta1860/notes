@@ -17,9 +17,7 @@ router.get("/", (req, res) => {
 // Params required: sessionToken -> type: String
 //                  username     -> type: String
 //                  note: { title       -> type: String,
-//                         desc        -> type: String,
-//                         dateCreated -> type: Date,
-//                         lastUpdated -> type: String }
+//                          desc        -> type: String }
 // Request URI -> http://localhost:4000/notes/newnote
 router.post("/newnote", (req, res) => {
   usersModel
@@ -33,15 +31,22 @@ router.post("/newnote", (req, res) => {
         .createHash("sha256")
         .update(Math.random().toString())
         .digest("hex");
-
       newNote.note_id = hash.toString();
+
+      // Adding the dateCreated and lastUpdated values of a note on server side instead of asking from front-end
+      const currentTime = new Date();
+      newNote.dateCreated = currentTime.toString();
+      newNote.lastUpdated = currentTime.toString();
 
       newNote
         .save()
         .then(resp => {
           res.send({
             success: true,
-            message: "Note successfully added. Note added -> " + req.body.note
+            message: "Note successfully added.",
+            payload: {
+              note: resp
+            }
           });
         })
         .catch(err => {
@@ -67,7 +72,6 @@ router.post("/newnote", (req, res) => {
 //                  note_id       : type -> String
 //                  title         : type -> String
 //                  desc          : type -> String
-//                  lastUpdated   : type -> String
 // Request URI: http://localhost:4000/notes/edit
 router.post("/edit", (req, res) => {
   console.log("Route for editing the note hit.");
@@ -84,6 +88,10 @@ router.post("/edit", (req, res) => {
         .then(resp => {
           // Now check if the user is owner of the note or not
           if (resp[0].owner.toString() === response[0]._id.toString()) {
+            // Generate the lastUpdated field on server rather than relying on front end for it
+            let currentTime = new Date();
+            currentTime = currentTime.toString();
+
             // Proceed with saving the new note provided in the request body
             notesModel
               .updateOne(
@@ -91,13 +99,20 @@ router.post("/edit", (req, res) => {
                 {
                   title: req.body.title,
                   desc: req.body.desc,
-                  lastUpdated: req.body.lastUpdated
+                  lastUpdated: currentTime
                 }
               )
               .then(resp1 => {
                 res.send({
                   success: true,
-                  message: "Note was successfully edited."
+                  message: "Note was successfully edited.",
+                  payload: {
+                    note: {
+                      title: req.body.title,
+                      desc: req.body.desc,
+                      note_id: req.body.note_id
+                    }
+                  }
                 });
               })
               .catch(err => {
@@ -167,7 +182,13 @@ router.post("/delete", (req, res) => {
       notesModel
         .deleteOne({ note_id: req.body.note_id, owner: response._id })
         .then(resp => {
-          res.send({ success: true, message: "Note successfully deleted." });
+          res.send({
+            success: true,
+            message: "Note successfully deleted.",
+            payload: {
+              note_id: req.body.note_id
+            }
+          });
         })
         .catch(err => {
           res.send({
@@ -194,12 +215,6 @@ router.post("/delete", (req, res) => {
 // Request URI -> http://localhost:4000/notes/allnotes
 router.post("/allnotes", (req, res) => {
   // First get the _id field of the user who is requesting to get all of his notes from usersModel
-  console.log(
-    "Username -> " +
-      req.body.username +
-      ". SessionToken -> " +
-      req.body.sessionToken
-  );
   usersModel
     .find({ username: req.body.username, sessionToken: req.body.sessionToken })
     .then(response => {
@@ -217,12 +232,13 @@ router.post("/allnotes", (req, res) => {
 
           // Now get all the notes that are shared with the current user
           notesModel
-            .find({ sharedWith: response[0].username })
+            .find({ sharedWith: response[0].email })
             .then(resp => {
               notes.shared = resp;
 
               res.send({
                 success: true,
+                message: "Notes sent.",
                 payload: {
                   notes: notes,
                   message:
@@ -265,7 +281,7 @@ router.post("/allnotes", (req, res) => {
 // Required params: username      : type -> String
 //                  sessionToken  : type -> String
 //                  note_id       : type -> String
-//                  usernames     : type -> Array of usernames to share a note with
+//                  emails        : type -> Array of emails to share a note with
 // Optional params: canEdit       : type -> Boolean
 // Request URI -> http://localhost:4000/notes/share
 router.post("/share", (req, res) => {
@@ -290,14 +306,17 @@ router.post("/share", (req, res) => {
             { note_id: req.body.note_id, owner: response._id },
             {
               canEdit: req.body.canEdit,
-              $addToSet: { sharedWith: { $each: req.body.usernames } }
+              $addToSet: { sharedWith: { $each: req.body.emails } }
             }
           )
           .then(resp => {
             res.send({
               success: true,
               message:
-                "Note successfully shared and also changed the canEdit flag."
+                "Note successfully shared and also changed the canEdit flag.",
+              payload: {
+                sharedWith: resp.sharedWith
+              }
             });
           })
           .catch(err => {
@@ -312,13 +331,17 @@ router.post("/share", (req, res) => {
         notesModel
           .updateOne(
             { note_id: req.body.note_id, owner: response._id },
-            { $addToSet: { sharedWith: { $each: req.body.usernames } } }
+            { $addToSet: { sharedWith: { $each: req.body.emails } } }
           )
           .then(resp => {
             res.send({
               success: true,
               message:
-                "Note successfully shared without changing the canEdit flag."
+                "Note successfully shared without changing the canEdit flag.",
+              payload: {
+                note_id: req.body.note_id,
+                sharedWith: req.body.emails
+              }
             });
           })
           .catch(err => {
@@ -362,7 +385,11 @@ router.post("/unshare", (req, res) => {
           { canEdit: false, $set: { sharedWith: [] } }
         )
         .then(resp => {
-          res.send({ success: true, message: "Note successfully unshared." });
+          res.send({
+            success: true,
+            message: "Note successfully unshared.",
+            payload: { note_id: req.body.note_id }
+          });
         })
         .catch(err => {
           res.send({

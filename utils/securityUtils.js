@@ -9,28 +9,30 @@ const crypto = require("crypto");
 
 module.exports = {
   getPasswordHash(password) {
-    var result = {};
+    const promise = new Promise((resolve, reject) => {
+      const salt = crypto.randomBytes(16).toString("hex");
+      const hash = crypto
+        .pbkdf2Sync(password, salt, 1000, 64, "sha512")
+        .toString("hex");
 
-    const salt = crypto.randomBytes(16).toString("hex");
-    const hash = crypto
-      .pbkdf2Sync(password, salt, 1000, 64, "sha512")
-      .toString("hex");
-
-    result.salt = salt;
-    result.hash = hash;
-
-    return result;
+      resolve({ salt: salt, hash: hash });
+    });
+    return promise;
   },
 
   verifyPassword(password, passwordHash, salt) {
-    const hash = crypto
-      .pbkdf2Sync(password, salt, 1000, 64, "sha512")
-      .toString("hex");
+    const promise = new Promise((resolve, reject) => {
+      const hash = crypto
+        .pbkdf2Sync(password, salt, 1000, 64, "sha512")
+        .toString("hex");
 
-    if (hash === passwordHash) {
-      return true;
-    } else {
-      return false;
-    }
+      if (hash === passwordHash) {
+        resolve(true);
+      } else {
+        reject(false);
+      }
+    });
+
+    return promise;
   }
 };

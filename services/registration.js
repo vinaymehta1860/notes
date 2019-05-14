@@ -46,43 +46,43 @@ router.post("/signup", function(req, res) {
         .createHmac("sha256", req.body.email)
         .update(Date.now().toString())
         .digest("hex");
-      const result = securityUtils.getPasswordHash(req.body.password);
+      securityUtils.getPasswordHash(req.body.password).then(result => {
+        // Create an object of this new user to store his info into the database
+        const userToStore = {
+          firstname: req.body.firstname,
+          lastname: req.body.lastname,
+          email: req.body.email,
+          salt: result.salt,
+          passwordHash: result.hash,
+          sessionToken: newSessionToken
+        };
 
-      // Create an object of this new user to store his info into the database
-      const userToStore = {
-        firstname: req.body.firstname,
-        lastname: req.body.lastname,
-        email: req.body.email,
-        salt: result.salt,
-        passwordHash: result.hash,
-        sessionToken: newSessionToken
-      };
-
-      var newUser = new users(userToStore);
-      const currentTime = new Date();
-      newUser.loginHistory.push(currentTime.toString());
-      //Good use of promises to know if save was actually successfull or not
-      newUser
-        .save()
-        .then(() => {
-          res.send({
-            success: true,
-            message: "User successfully created.",
-            payload: {
-              firstname: req.body.firstname,
-              email: req.body.email,
-              sessionToken: newSessionToken
-            }
+        var newUser = new users(userToStore);
+        const currentTime = new Date();
+        newUser.loginHistory.push(currentTime.toString());
+        //Good use of promises to know if save was actually successfull or not
+        newUser
+          .save()
+          .then(() => {
+            res.send({
+              success: true,
+              message: "User successfully created.",
+              payload: {
+                firstname: req.body.firstname,
+                email: req.body.email,
+                sessionToken: newSessionToken
+              }
+            });
+          })
+          .catch(err => {
+            console.log("Error while performing save -> " + err);
+            res.send({
+              success: false,
+              message:
+                "Error while performing save function. Please see the console log on the server side."
+            });
           });
-        })
-        .catch(err => {
-          console.log("Error while performing save -> " + err);
-          res.send({
-            success: false,
-            message:
-              "Error while performing save function. Please see the console log on the server side."
-          });
-        });
+      });
     } else {
       // Handling the case where user already exists in database.
       // Throw an error
@@ -118,85 +118,79 @@ router.post("/signin", function(req, res) {
 
     // If there is an user with the provided email address, verify his identity
     if (response) {
-      const signedIn = securityUtils.verifyPassword(
-        req.body.password,
-        response.passwordHash,
-        response.salt
-      );
+      securityUtils
+        .verifyPassword(req.body.password, response.passwordHash, response.salt)
+        .then(result => {
+          if (response.sessionToken === null) {
+            // Generate a sessionToken and update the lastLoggedIn entry into the database.
+            const hash = crypto
+              .createHmac("sha256", req.body.email)
+              .update(Date.now().toString())
+              .digest("hex");
 
-      // If user's identity is successfully verified, then proceed to sign him in.
-      if (signedIn) {
-        // This case shouldn't happen anytime, but still we're performing this check to see if
-        //  user already has a sessionToken assigned to him.
-        if (response.sessionToken === null) {
-          // Generate a sessionToken and update the lastLoggedIn entry into the database.
-          const hash = crypto
-            .createHmac("sha256", req.body.email)
-            .update(Date.now().toString())
-            .digest("hex");
-
-          users.updateOne(
-            { email: response.email },
-            { sessionToken: hash },
-            (err, resp) => {
-              if (err) {
-                res.send({
-                  success: false,
-                  message:
-                    "There was an error while generating and storing the sessionToken for the user. Please try again.",
-                  payload: {
-                    error: err
-                  }
-                });
-              }
-
-              if (resp) {
-                let currentUser = response;
-                const currentTime = new Date();
-                currentUser.loginHistory.push(currentTime.toString());
-                currentUser
-                  .save()
-                  .then(resp => {
-                    res.send({
-                      success: true,
-                      message: "User successfully logged in.",
-                      payload: {
-                        firstname: resp.firstname,
-                        email: resp.email,
-                        sessionToken: hash
-                      }
-                    });
-                  })
-                  .catch(error => {
-                    res.send({
-                      success: false,
-                      message:
-                        "There was an error while updating the user's information into the db.",
-                      payload: {
-                        error: error
-                      }
-                    });
+            users.updateOne(
+              { email: response.email },
+              { sessionToken: hash },
+              (err, resp) => {
+                if (err) {
+                  res.send({
+                    success: false,
+                    message:
+                      "There was an error while generating and storing the sessionToken for the user. Please try again.",
+                    payload: {
+                      error: err
+                    }
                   });
+                }
+
+                if (resp) {
+                  let currentUser = response;
+                  const currentTime = new Date();
+                  currentUser.loginHistory.push(currentTime.toString());
+                  currentUser
+                    .save()
+                    .then(resp => {
+                      res.send({
+                        success: true,
+                        message: "User successfully logged in.",
+                        payload: {
+                          firstname: resp.firstname,
+                          email: resp.email,
+                          sessionToken: hash
+                        }
+                      });
+                    })
+                    .catch(error => {
+                      res.send({
+                        success: false,
+                        message:
+                          "There was an error while updating the user's information into the db.",
+                        payload: {
+                          error: error
+                        }
+                      });
+                    });
+                }
               }
-            }
-          );
-        } else {
+            );
+          } else {
+            res.send({
+              success: true,
+              message: "User is already logged in.",
+              payload: {
+                firstname: response.firstname,
+                email: response.email,
+                sessionToken: response.sessionToken
+              }
+            });
+          }
+        })
+        .catch(result => {
           res.send({
-            success: true,
-            message: "User is already logged in.",
-            payload: {
-              firstname: response.firstname,
-              email: response.email,
-              sessionToken: response.sessionToken
-            }
+            success: false,
+            message: "Incorrect email/password combination."
           });
-        }
-      } else {
-        res.send({
-          success: false,
-          message: "Incorrect email/password combination."
         });
-      }
     } else {
       res.send({
         success: false,

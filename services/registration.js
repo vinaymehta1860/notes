@@ -3,6 +3,8 @@ const express = require("express"),
   crypto = require("crypto"),
   router = express.Router();
 
+const securityUtils = require("../utils/securityUtils");
+
 router.use(bodyParser.json());
 
 // MongoDB User Object to use in file
@@ -16,14 +18,16 @@ router.get("/", function(req, res) {
 
 /*
  * Route for sign up
- * Params required: Username    -> type: String
+ * Params required: firstname   -> type: String
+ *                  lastname    -> type: String
  *                  Password    -> type: String
  *                  Email       -> type: String
- *                  dateCreated -> type: String
  * Req URI: http://localhost:4000/registration/signup
  */
 router.post("/signup", function(req, res) {
   console.log("Route for signup hit.");
+  // Every user is supposed to have unique email address for registration.
+  // Hence we'll first of all check if any user has the email that the current user is trying to use.
   users.find({ email: req.body.email }, function(err, response) {
     if (err) {
       // There's something wrong with your query for database access
@@ -34,19 +38,27 @@ router.post("/signup", function(req, res) {
       });
     }
 
+    // Handling the case if no user with the provided email is there.
+    // Creating a new user with the provided information
     if (!response.length) {
-      // Handling the case if no user with the provided email is there
-      // Creating a new user with the provided username and password
-
-      //Generating sessionToken for the user
-      var hash = crypto
-        .createHmac("sha256", req.body.username)
+      // Generate the sessionToken, salt and passwordHash for this user
+      const newSessionToken = crypto
+        .createHmac("sha256", req.body.email)
         .update(Date.now().toString())
         .digest("hex");
+      const result = securityUtils.getPasswordHash(req.body.password);
 
-      req.body.sessionToken = hash;
+      // Create an object of this new user to store his info into the database
+      const userToStore = {
+        firstname: req.body.firstname,
+        lastname: req.body.lastname,
+        email: req.body.email,
+        salt: result.salt,
+        passwordHash: result.hash,
+        sessionToken: newSessionToken
+      };
 
-      var newUser = new users(req.body);
+      var newUser = new users(userToStore);
       const currentTime = new Date();
       newUser.loginHistory.push(currentTime.toString());
       //Good use of promises to know if save was actually successfull or not
@@ -58,9 +70,8 @@ router.post("/signup", function(req, res) {
             message: "User successfully created.",
             payload: {
               firstname: req.body.firstname,
-              username: req.body.username,
               email: req.body.email,
-              sessionToken: hash
+              sessionToken: newSessionToken
             }
           });
         })
@@ -86,147 +97,162 @@ router.post("/signup", function(req, res) {
 
 /*
  * Route for sign in
- * Params required: Username -> type: String
+ * Params required: Email    -> type: String
  *                  Password -> type: String
  * Req URI: http://localhost:4000/registration/signin
  */
 router.post("/signin", function(req, res) {
   console.log("Route for signin hit.");
-  users.find(
-    { username: req.body.username, password: req.body.password },
-    function(err, response) {
-      if (err) {
-        // There's something wrong with your query for database access
-        res.send({
-          success: false,
-          message:
-            "Error while accessing database. Please check your backend query."
-        });
-      }
+  users.findOne({ email: req.body.email }, (error, response) => {
+    // Check for any errors
+    if (error) {
+      res.send({
+        success: false,
+        message:
+          "There's some error while accessing the database. Please check your db query.",
+        payload: {
+          error: error
+        }
+      });
+    }
 
-      if (response.length) {
-        // Generate a sessionToken for the current user and update database table
-        users.find({ username: req.body.username }, (err, response) => {
-          if (err) {
-            // There's something wrong with your query for database access
-            res.send({
-              success: false,
-              message:
-                "Error while accessing database. Please check your backend query."
-            });
-          }
+    // If there is an user with the provided email address, verify his identity
+    if (response) {
+      const signedIn = securityUtils.verifyPassword(
+        req.body.password,
+        response.passwordHash,
+        response.salt
+      );
 
-          // Check if there already is a sessionToken
-          // If there is, return the same or else create a new one
-          if (response[0].sessionToken !== null) {
-            res.send({
-              success: true,
-              message: "User already logged in.",
-              payload: {
-                firstname: response[0].firstname,
-                username: req.body.username,
-                sessionToken: response[0].sessionToken
+      // If user's identity is successfully verified, then proceed to sign him in.
+      if (signedIn) {
+        // This case shouldn't happen anytime, but still we're performing this check to see if
+        //  user already has a sessionToken assigned to him.
+        if (response.sessionToken === null) {
+          // Generate a sessionToken and update the lastLoggedIn entry into the database.
+          const hash = crypto
+            .createHmac("sha256", req.body.email)
+            .update(Date.now().toString())
+            .digest("hex");
+
+          users.updateOne(
+            { email: response.email },
+            { sessionToken: hash },
+            (err, resp) => {
+              if (err) {
+                res.send({
+                  success: false,
+                  message:
+                    "There was an error while generating and storing the sessionToken for the user. Please try again.",
+                  payload: {
+                    error: err
+                  }
+                });
               }
-            });
-          } else {
-            // Generating sessionToken for the user
-            var hash = crypto
-              .createHmac("sha256", req.body.username)
-              .update(Date.now().toString())
-              .digest("hex");
 
-            // Updating the database to reflect new sessionToken
-            // TODO: Update the callback function to be a promise
-            users.updateOne(
-              { _id: response[0]._id },
-              { sessionToken: hash },
-              (err, resp) => {
-                if (err) {
-                  res.send({
-                    success: false,
-                    message: "Error while performing update query."
+              if (resp) {
+                let currentUser = response;
+                const currentTime = new Date();
+                currentUser.loginHistory.push(currentTime.toString());
+                currentUser
+                  .save()
+                  .then(resp => {
+                    res.send({
+                      success: true,
+                      message: "User successfully logged in.",
+                      payload: {
+                        firstname: resp.firstname,
+                        email: resp.email,
+                        sessionToken: hash
+                      }
+                    });
+                  })
+                  .catch(error => {
+                    res.send({
+                      success: false,
+                      message:
+                        "There was an error while updating the user's information into the db.",
+                      payload: {
+                        error: error
+                      }
+                    });
                   });
-                }
-                if (resp) {
-                  var updateLoginHistory = response[0];
-                  const currentTime = new Date();
-                  updateLoginHistory.loginHistory.push(currentTime.toString());
-                  updateLoginHistory.save();
-                  // FUTURE WORK: May be use promises for the save operation to handle sending back responses
-                  res.send({
-                    success: true,
-                    message: "User successfully logged in.",
-                    payload: {
-                      firstname: response[0].firstname,
-                      username: response[0].username,
-                      sessionToken: hash
-                    }
-                  });
-                }
               }
-            );
-          }
-        });
+            }
+          );
+        } else {
+          res.send({
+            success: true,
+            message: "User is already logged in.",
+            payload: {
+              firstname: response.firstname,
+              email: response.email,
+              sessionToken: response.sessionToken
+            }
+          });
+        }
       } else {
         res.send({
           success: false,
-          message: "ERROR. Invalid username/password."
+          message: "Incorrect email/password combination."
         });
       }
+    } else {
+      res.send({
+        success: false,
+        message:
+          "There's been some weird error at the server side. Please check the server console."
+      });
     }
-  );
+  });
 });
 
 /*
  * Route to check if sessionToken is valid or not
- * Params required:  Username      -> type: String
- *                   sessionToken  -> type: String
+ * Params required:  sessionToken  -> type: String
  * Req URI: http://localhost:4000/registration/verifyLoggedInUser
  */
 router.post("/verifyLoggedInUser", (req, res) => {
   console.log("Route for verification hit.");
-  users.findOne(
-    { username: req.body.username, sessionToken: req.body.sessionToken },
-    (err, response) => {
-      if (err) {
-        res.send({
-          success: false,
-          message:
-            "Error while accessing database. Please check your backend query."
-        });
-      }
-
-      if (!response) {
-        res.send({
-          success: false,
-          message: "Invalid Username/sessionToken."
-        });
-      } else {
-        // This user is already signed in. Send a success response.
-        res.send({
-          success: true,
-          message: "User already logged in.",
-          payload: {
-            firstname: response.firstname,
-            username: response.username,
-            sessionToken: response.sessionToken
-          }
-        });
-      }
+  users.findOne({ sessionToken: req.body.sessionToken }, (err, response) => {
+    if (err) {
+      res.send({
+        success: false,
+        message:
+          "Error while accessing database. Please check your backend query."
+      });
     }
-  );
+
+    if (!response) {
+      res.send({
+        success: false,
+        message: "Invalid Email/sessionToken."
+      });
+    } else {
+      // This user is already signed in. Send a success response.
+      res.send({
+        success: true,
+        message: "User already logged in.",
+        payload: {
+          firstname: response.firstname,
+          email: response.email,
+          sessionToken: response.sessionToken
+        }
+      });
+    }
+  });
 });
 
 /*
  * Route for logout
- * Params required: Username      -> type: String
+ * Params required: Email         -> type: String
  *                  sessionToken  -> type: String
  * Req URI: http://localhost:4000/registration/logout
  */
 router.post("/logout", function(req, res) {
   console.log("Route for logout hit.");
   users.find(
-    { username: req.body.username, sessionToken: req.body.sessionToken },
+    { email: req.body.email, sessionToken: req.body.sessionToken },
     (err, response) => {
       if (err) {
         // There's something wrong with your query for database access
@@ -238,11 +264,11 @@ router.post("/logout", function(req, res) {
       }
 
       if (!response.length) {
-        // Error with the username that is being sent
+        // Error with the email that is being sent
         res.send({
           success: false,
           message:
-            "There's something wrong in the frontend with usernames for all the users. Check and send the request again."
+            "There's something wrong in the frontend with email for all the users. Check and send the request again."
         });
       } else {
         // Updating the sessionToken when a user logs out

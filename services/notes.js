@@ -7,6 +7,7 @@ router.use(bodyParser.json());
 
 const usersModel = require("../models/users");
 const notesModel = require("../models/notes");
+const helper = require("../utils/helper");
 
 // Request URI -> http://localhost:4000/notes
 router.get("/", (req, res) => {
@@ -15,16 +16,16 @@ router.get("/", (req, res) => {
 
 // Route for adding a new note
 // Params required: sessionToken -> type: String
-//                  username     -> type: String
+//                  email        -> type: String
 //                  note: { title       -> type: String,
 //                          desc        -> type: String }
 // Request URI -> http://localhost:4000/notes/newnote
 router.post("/newnote", (req, res) => {
   usersModel
-    .find({ username: req.body.username, sessionToken: req.body.sessionToken })
+    .findOne({ email: req.body.email, sessionToken: req.body.sessionToken })
     .then(response => {
       var newNote = new notesModel(req.body.note);
-      newNote.owner = response[0]._id;
+      newNote.owner = response._id;
 
       // Generating unique id for the note
       const hash = crypto
@@ -61,33 +62,32 @@ router.post("/newnote", (req, res) => {
       res.send({
         success: false,
         message:
-          "There's something wrong with the username and/or sessionToken provided."
+          "There's something wrong with the email and/or sessionToken provided."
       });
     });
 });
 
 // Route for editing a note
 // Params required: sessionToken  : type -> String
-//                  username      : type -> String
+//                  email         : type -> String
 //                  note_id       : type -> String
 //                  title         : type -> String
 //                  desc          : type -> String
 // Request URI: http://localhost:4000/notes/edit
 router.post("/edit", (req, res) => {
   console.log("Route for editing the note hit.");
-  console.log("Note_id --> " + req.body.note_id);
 
   // First of all, check if the current user who is requesting to edit the note is signed in or not.
-  //  This will be done by checking the provided username and sessionToken from userModel
+  //  This will be done by checking the provided email and sessionToken from userModel
   usersModel
-    .find({ username: req.body.username, sessionToken: req.body.sessionToken })
+    .findOne({ email: req.body.email, sessionToken: req.body.sessionToken })
     .then(response => {
       // Once the user is found appropriate, get the note that he wants to edit from notesModel
       notesModel
-        .find({ note_id: req.body.note_id })
+        .findOne({ note_id: req.body.note_id })
         .then(resp => {
           // Now check if the user is owner of the note or not
-          if (resp[0].owner.toString() === response[0]._id.toString()) {
+          if (resp.owner.toString() === response._id.toString()) {
             // Generate the lastUpdated field on server rather than relying on front end for it
             let currentTime = new Date();
             currentTime = currentTime.toString();
@@ -124,12 +124,12 @@ router.post("/edit", (req, res) => {
               });
           } else {
             // Check if the user is a shared user and if the note is allowed to be edited by shared user
-            const canEdit = resp[0].canEdit;
+            const canEdit = resp.canEdit;
 
             var isSharedUser = false;
 
-            resp[0].sharedWith.foreach(user => {
-              if (req.body.username === user) isSharedUser = true;
+            resp.sharedWith.foreach(user => {
+              if (req.body.email === user) isSharedUser = true;
             });
 
             if (canEdit === true && isSharedUser === true)
@@ -142,7 +142,7 @@ router.post("/edit", (req, res) => {
                 success: false,
                 message:
                   "This note cannot be edited by the user. Reason can be anyone of the following. " +
-                  "1) There's something wrong with the provided username, sessionToken, note_id. " +
+                  "1) There's something wrong with the provided email, sessionToken, note_id. " +
                   "2) Current user is not a shared user for the current note. " +
                   "3) This note is not allowed to be edited."
               });
@@ -160,20 +160,20 @@ router.post("/edit", (req, res) => {
       res.send({
         success: false,
         message:
-          "There's something wrong with the provided username and/or sessionToken."
+          "There's something wrong with the provided email and/or sessionToken."
       });
     });
 });
 
 // Route for deleting a note
-// Required params: username      : type -> username
+// Required params: email         : type -> username
 //                  sessionToken  : type -> String
 //                  note_id       : type -> username
 // Request URI: http://localhost:4000/notes/delete
 router.post("/delete", (req, res) => {
   usersModel
     .findOne({
-      username: req.body.username,
+      email: req.body.email,
       sessionToken: req.body.sessionToken
     })
     .then(response => {
@@ -210,13 +210,13 @@ router.post("/delete", (req, res) => {
 });
 
 // Route for getting all the notes of a user
-// Required params: username      : type -> String
+// Required params: email         : type -> String
 //                  sessionToken  : type -> String
 // Request URI -> http://localhost:4000/notes/allnotes
 router.post("/allnotes", (req, res) => {
   // First get the _id field of the user who is requesting to get all of his notes from usersModel
   usersModel
-    .find({ username: req.body.username, sessionToken: req.body.sessionToken })
+    .findOne({ email: req.body.email, sessionToken: req.body.sessionToken })
     .then(response => {
       // Now that we've the user object, we can perform a query to get all of the notes where he is the owner and
       //  shared user. Get these notes object seperately so that it can be easier for front end to render them.
@@ -226,13 +226,13 @@ router.post("/allnotes", (req, res) => {
 
       // Getting all the notes where the user is owner
       notesModel
-        .find({ owner: response[0]._id })
+        .find({ owner: response._id })
         .then(resp => {
           notes.owner = resp;
 
           // Now get all the notes that are shared with the current user
           notesModel
-            .find({ sharedWith: response[0].email })
+            .find({ sharedWith: response.email })
             .then(resp => {
               notes.shared = resp;
 
@@ -277,82 +277,85 @@ router.post("/allnotes", (req, res) => {
     });
 });
 
-// Route for sharing a note with other users
-// Required params: username      : type -> String
-//                  sessionToken  : type -> String
-//                  note_id       : type -> String
-//                  emails        : type -> Array of emails to share a note with
-// Optional params: canEdit       : type -> Boolean
-// Request URI -> http://localhost:4000/notes/share
+/* Route for sharing a note with other users
+ * Required params: email         : type -> String
+ *                  sessionToken  : type -> String
+ *                  note_id       : type -> String
+ *                  emails        : type -> Array of emails to share a note with
+ * Request URI -> http://localhost:4000/notes/share
+ */
 router.post("/share", (req, res) => {
-  // First check if a user who is trying to share a note is the owner of that note or not
+  /*
+   * This is a little complicated step. Below is the explanation.
+   * First we'll verify if the current user is the owner of the note that he's trying to share.
+   * If yes, then we'll update the sharedWith array to add the specified members.
+   * All of this will be done in one update query so might be little complicated to understand
+   * if you're looking at the code after a while.
+   */
   usersModel
     .findOne({
-      username: req.body.username,
+      email: req.body.email,
       sessionToken: req.body.sessionToken
     })
     .then(response => {
-      /*
-      This is a little complicated step. Below is the explanation.
-      First we'll verify if the current user is the owner of the note that he's trying to share.
-      If yes, then we'll update the sharedWith array to add the specified members.
-      Once we've added the shared users, we'll check if the canEdit flag is true, if yes then we'll update that as well.
-      All of this will be done in one update query so might be little complicated to understand
-      if you're looking at the code after a while.
-    */
-      if (req.body.canEdit === true) {
-        notesModel
-          .updateOne(
-            { note_id: req.body.note_id, owner: response._id },
-            {
-              canEdit: req.body.canEdit,
-              $addToSet: { sharedWith: { $each: req.body.emails } }
+      notesModel
+        .findOne({ note_id: req.body.note_id })
+        .then(resp => {
+          // Check to see if the user who is trying to share the note is owner or not
+          if (resp.owner.toString() === response._id.toString()) {
+            helper.verifyUsers(req.body.emails).then(usersToAdd => {
+              if (usersToAdd.length > 0) {
+                notesModel
+                  .updateOne(
+                    { note_id: req.body.note_id, owner: response._id },
+                    {
+                      $addToSet: { sharedWith: { $each: usersToAdd } }
+                    }
+                  )
+                  .then(updateResponse => {
+                    res.send({
+                      success: true,
+                      message: "Note shared successfully.",
+                      payload: {
+                        note_id: req.body.note_id,
+                        sharedWith: usersToAdd
+                      }
+                    });
+                  })
+                  .catch(err => {
+                    res.send({
+                      success: false,
+                      message:
+                        "There was an error while adding the specified users as shared users. Error -> " +
+                        err
+                    });
+                  });
+              } else {
+                res.send({
+                  success: false,
+                  message:
+                    "No user that you want to share the note with has an account."
+                });
+              }
+            });
+          } else {
+            res.send({
+              success: false,
+              message:
+                "The user who is trying to share is not the owner of the note."
+            });
+          }
+        })
+        .catch(error => {
+          res.send({
+            success: false,
+            message:
+              "There was an error while retrieving the note that you want to share.",
+            payload: {
+              error: error
             }
-          )
-          .then(resp => {
-            res.send({
-              success: true,
-              message:
-                "Note successfully shared and also changed the canEdit flag.",
-              payload: {
-                sharedWith: resp.sharedWith
-              }
-            });
-          })
-          .catch(err => {
-            res.send({
-              success: false,
-              message:
-                "There was an error while adding the specified users as shared users. Error -> " +
-                err
-            });
           });
-      } else {
-        notesModel
-          .updateOne(
-            { note_id: req.body.note_id, owner: response._id },
-            { $addToSet: { sharedWith: { $each: req.body.emails } } }
-          )
-          .then(resp => {
-            res.send({
-              success: true,
-              message:
-                "Note successfully shared without changing the canEdit flag.",
-              payload: {
-                note_id: req.body.note_id,
-                sharedWith: req.body.emails
-              }
-            });
-          })
-          .catch(err => {
-            res.send({
-              success: false,
-              message:
-                "There was an error while adding the specified users as shared users. Error -> " +
-                err
-            });
-          });
-      }
+        });
     })
     .catch(err => {
       res.send({
@@ -365,7 +368,7 @@ router.post("/share", (req, res) => {
 });
 
 // Route for un-sharing a note
-// Required params: username      : type -> String
+// Required params: email         : type -> String
 //                  sessionToken  : type -> String
 //                  note_id       : type -> String
 // Request URI -> http://localhost:4000/notes/unshare
@@ -373,7 +376,7 @@ router.post("/unshare", (req, res) => {
   // First find the _id of the user who wants to unshare the note
   usersModel
     .findOne({
-      username: req.body.username,
+      email: req.body.email,
       sessionToken: req.body.sessionToken
     })
     .then(response => {

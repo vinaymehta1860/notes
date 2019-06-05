@@ -458,6 +458,59 @@ router.post("/permissions", (req, res) => {
     });
 });
 
+/*  Route for user to leave the note as a shared user
+    Required params: email        --> type: String
+                     sessionToken --> type: String
+                     note_id      --> type: number
+    Route --> http://localhost:4000/notes/leave
+ */
+router.post("/leave", (req, res) => {
+  notesModel
+    .findOne({ note_id: req.body.note_id })
+    .then(response => {
+      // Remove the current user from sharedWith array and save the updated shared users
+      let updatedSharedUsers = response.sharedWith;
+
+      let indexofUserToBeRemoved = updatedSharedUsers.indexOf(req.body.note_id);
+      updatedSharedUsers.splice(indexofUserToBeRemoved, 1);
+
+      notesModel
+        .updateOne(
+          { note_id: req.body.note_id },
+          { sharedWith: updatedSharedUsers }
+        )
+        .then(response => {
+          res.send({
+            success: true,
+            message: "Current user removed as a shared user for the note.",
+            payload: {
+              note_id: req.body.note_id,
+              response
+            }
+          });
+        })
+        .catch(error => {
+          res.send({
+            success: false,
+            message:
+              "There was an error while saving the note with the current user removed. Please check the server logs.",
+            payload: {
+              error
+            }
+          });
+        });
+    })
+    .catch(error => {
+      res.send({
+        success: false,
+        message: "No note was found with the given note_id.",
+        payload: {
+          error
+        }
+      });
+    });
+});
+
 // Function to get all the notes where the provided user_id is the owner
 function getOwnerNotes(user_id) {
   notesModel

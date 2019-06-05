@@ -69,6 +69,7 @@ router.post("/signup", function(req, res) {
               message: "User successfully created.",
               payload: {
                 firstname: req.body.firstname,
+                lastname: req.body.lastname,
                 email: req.body.email,
                 sessionToken: newSessionToken
               }
@@ -155,6 +156,7 @@ router.post("/signin", function(req, res) {
                         message: "User successfully logged in.",
                         payload: {
                           firstname: resp.firstname,
+                          lastname: resp.lastname,
                           email: resp.email,
                           sessionToken: hash
                         }
@@ -194,8 +196,7 @@ router.post("/signin", function(req, res) {
     } else {
       res.send({
         success: false,
-        message:
-          "There's been some weird error at the server side. Please check the server console."
+        message: "Incorrect email/password combination."
       });
     }
   });
@@ -229,6 +230,7 @@ router.post("/verifyLoggedInUser", (req, res) => {
         message: "User already logged in.",
         payload: {
           firstname: response.firstname,
+          lastname: response.lastname,
           email: response.email,
           sessionToken: response.sessionToken
         }

@@ -14,12 +14,13 @@ router.get("/", (req, res) => {
   res.send({ success: true, message: "Request handled successfully." });
 });
 
-// Route for adding a new note
-// Params required: sessionToken -> type: String
-//                  email        -> type: String
-//                  note: { title       -> type: String,
-//                          desc        -> type: String }
-// Request URI -> http://localhost:4000/notes/newnote
+/* Route for adding a new note
+ * Params required: sessionToken -> type: String
+ *                  email        -> type: String
+ *                  note: {title -> type: String,
+ *                         desc  -> type: String }
+ * Request URI -> http://localhost:4000/notes/newnote
+ */
 router.post("/newnote", (req, res) => {
   usersModel
     .findOne({ email: req.body.email, sessionToken: req.body.sessionToken })
@@ -67,13 +68,14 @@ router.post("/newnote", (req, res) => {
     });
 });
 
-// Route for editing a note
-// Params required: sessionToken  : type -> String
-//                  email         : type -> String
-//                  note_id       : type -> String
-//                  title         : type -> String
-//                  desc          : type -> String
-// Request URI: http://localhost:4000/notes/edit
+/* Route for editing a note
+ * Params required: sessionToken  : type -> String
+ *                  email         : type -> String
+ *                  note_id       : type -> String
+ *                  title         : type -> String
+ *                  desc          : type -> String
+ * Request URI: http://localhost:4000/notes/edit
+ */
 router.post("/edit", (req, res) => {
   console.log("Route for editing the note hit.");
 
@@ -84,7 +86,7 @@ router.post("/edit", (req, res) => {
     .then(response => {
       // Once the user is found appropriate, get the note that he wants to edit from notesModel
       notesModel
-        .findOne({ note_id: req.body.note_id })
+        .findOne({ note_id: req.body.note.note_id })
         .then(resp => {
           // Now check if the user is owner of the note or not
           if (resp.owner.toString() === response._id.toString()) {
@@ -94,24 +96,13 @@ router.post("/edit", (req, res) => {
 
             // Proceed with saving the new note provided in the request body
             notesModel
-              .updateOne(
-                { note_id: req.body.note_id },
-                {
-                  title: req.body.title,
-                  desc: req.body.desc,
-                  lastUpdated: currentTime
-                }
-              )
+              .updateOne({ note_id: req.body.note.note_id }, req.body.note)
               .then(resp1 => {
                 res.send({
                   success: true,
                   message: "Note was successfully edited.",
                   payload: {
-                    note: {
-                      title: req.body.title,
-                      desc: req.body.desc,
-                      note_id: req.body.note_id
-                    }
+                    note: req.body.note
                   }
                 });
               })
@@ -165,11 +156,12 @@ router.post("/edit", (req, res) => {
     });
 });
 
-// Route for deleting a note
-// Required params: email         : type -> username
-//                  sessionToken  : type -> String
-//                  note_id       : type -> username
-// Request URI: http://localhost:4000/notes/delete
+/* Route for deleting a note
+ * Required params: email         : type -> username
+ *                  sessionToken  : type -> String
+ *                  note_id       : type -> username
+ * Request URI: http://localhost:4000/notes/delete
+ */
 router.post("/delete", (req, res) => {
   usersModel
     .findOne({
@@ -209,10 +201,11 @@ router.post("/delete", (req, res) => {
     });
 });
 
-// Route for getting all the notes of a user
-// Required params: email         : type -> String
-//                  sessionToken  : type -> String
-// Request URI -> http://localhost:4000/notes/allnotes
+/* Route for getting all the notes of a user
+ * Required params: email         : type -> String
+ *                  sessionToken  : type -> String
+ * Request URI -> http://localhost:4000/notes/allnotes
+ */
 router.post("/allnotes", (req, res) => {
   // First get the _id field of the user who is requesting to get all of his notes from usersModel
   usersModel

@@ -52,6 +52,7 @@ router.post("/signup", function(req, res) {
           firstname: req.body.firstname,
           lastname: req.body.lastname,
           email: req.body.email,
+          groups: ["Work", "Finance", "Personal", "College", "Errands", "Misc"],
           salt: result.salt,
           passwordHash: result.hash,
           sessionToken: newSessionToken
@@ -71,6 +72,14 @@ router.post("/signup", function(req, res) {
                 firstname: req.body.firstname,
                 lastname: req.body.lastname,
                 email: req.body.email,
+                groups: [
+                  "Work",
+                  "Finance",
+                  "Personal",
+                  "College",
+                  "Errands",
+                  "Misc"
+                ],
                 sessionToken: newSessionToken
               }
             });
@@ -158,6 +167,7 @@ router.post("/signin", function(req, res) {
                           firstname: resp.firstname,
                           lastname: resp.lastname,
                           email: resp.email,
+                          groups: resp.groups,
                           sessionToken: hash
                         }
                       });
@@ -182,6 +192,7 @@ router.post("/signin", function(req, res) {
               payload: {
                 firstname: response.firstname,
                 email: response.email,
+                groups: response.groups,
                 sessionToken: response.sessionToken
               }
             });
@@ -232,6 +243,7 @@ router.post("/verifyLoggedInUser", (req, res) => {
           firstname: response.firstname,
           lastname: response.lastname,
           email: response.email,
+          groups: response.groups,
           sessionToken: response.sessionToken
         }
       });

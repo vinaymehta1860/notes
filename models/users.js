@@ -4,6 +4,7 @@ var mongoose = require("mongoose"),
 var userTable = new Schema({
   firstname: { type: String, required: true },
   lastname: { type: String, required: true },
+  groups: [String],
   salt: { type: String },
   passwordHash: { type: String },
   email: { type: String, unique: true, required: true },

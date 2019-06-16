@@ -4,6 +4,7 @@ var mongoose = require("mongoose"),
 var userNotes = new Schema({
   title: { type: String },
   desc: { type: String },
+  group: { type: String, default: null },
   note_id: { type: String, unique: true },
   dateCreated: { type: String, default: new Date().toString() },
   lastUpdated: { type: String },

@@ -1,14 +1,14 @@
-var express = require("express"),
-  cors = require("cors"),
-  mongoose = require("mongoose");
+var express = require('express'),
+  cors = require('cors'),
+  mongoose = require('mongoose');
 
-mongoose.set("useCreateIndex", true);
+mongoose.set('useCreateIndex', true);
 var db = mongoose
-  .connect("mongodb://localhost/notes-backend", { useNewUrlParser: true })
+  .connect('mongodb://localhost/notes-backend', { useNewUrlParser: true })
   .then(
     function() {
       //Successfull connection to mongoDB database.
-      console.log("Successfully connected to MongoDB Database.");
+      console.log('Successfully connected to MongoDB Database.');
     },
     function(err) {
       //Error while connecting to MongoDB database.
@@ -16,16 +16,20 @@ var db = mongoose
     }
   );
 
-const registrationHandler = require("./services/registration");
-const notesHandler = require("./services/notes");
+const registrationHandler = require('./services/registration');
+const notesHandler = require('./services/notes');
 
 var app = express();
 
-app.use(cors());
+app.use(function(req, res, next) {
+  cors();
+  next();
+});
 
-app.use("/registration", registrationHandler);
-app.use("/notes", notesHandler);
+// Individual file mapping for each module
+app.use('/registration', registrationHandler);
+app.use('/notes', notesHandler);
 
 app.listen(4000, function() {
-  console.log("Server running on port 4000");
+  console.log('Server running on port 4000');
 });

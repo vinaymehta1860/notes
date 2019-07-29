@@ -1,4 +1,4 @@
-const usersModel = require("../models/users");
+const usersModel = require('../models/users');
 
 module.exports = {
   // This function will verify if any users with the given emails are current users or not
@@ -16,8 +16,6 @@ module.exports = {
             }
           })
           .catch(error => {
-            // console.log("Inside catch");
-            // reject(verifiedUsers);
             // If you're done verifying all the email address, then resolve the promise.
             if (index === emails.length - 1) {
               resolve(verifiedUsers);

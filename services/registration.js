@@ -1,19 +1,26 @@
-const express = require("express"),
-  bodyParser = require("body-parser"),
-  crypto = require("crypto"),
+const bodyParser = require('body-parser'),
+  crypto = require('crypto'),
+  cors = require('cors'),
+  cookieParser = require('cookie-parser'),
+  express = require('express'),
   router = express.Router();
 
-const securityUtils = require("../utils/securityUtils");
+// External files/modules
+const securityUtils = require('../utils/securityUtils');
 
-router.use(bodyParser.json());
+router.use(
+  cors({ credentials: true, origin: 'http://localhost:3001' }),
+  bodyParser.json(),
+  cookieParser('82e4e438a0705fabf61f9854e3b575af')
+);
 
 // MongoDB User Object to use in file
-var users = require("../models/users");
+var users = require('../models/users');
 
 //Sample test route
-router.get("/", function(req, res) {
-  console.log("Test route for registration");
-  return res.send("Hello from Node App.");
+router.get('/', function(req, res) {
+  console.log('Test route for registration');
+  return res.send('Hello from Node App.');
 });
 
 /*
@@ -24,17 +31,17 @@ router.get("/", function(req, res) {
  *                  Email       -> type: String
  * Req URI: http://localhost:4000/registration/signup
  */
-router.post("/signup", function(req, res) {
-  console.log("Route for signup hit.");
+router.post('/signup', function(req, res) {
+  console.log('Route for signup hit.');
   // Every user is supposed to have unique email address for registration.
-  // Hence we'll first of all check if any user has the email that the current user is trying to use.
+  // Hence we'll first check if any user has the email that the current user is trying to use.
   users.find({ email: req.body.email }, function(err, response) {
     if (err) {
       // There's something wrong with your query for database access
       res.send({
         success: false,
         message:
-          "Error while accessing database. Please check your backend query."
+          'Error while accessing database. Please check your backend query.'
       });
     }
 
@@ -43,16 +50,18 @@ router.post("/signup", function(req, res) {
     if (!response.length) {
       // Generate the sessionToken, salt and passwordHash for this user
       const newSessionToken = crypto
-        .createHmac("sha256", req.body.email)
+        .createHmac('sha256', req.body.email)
         .update(Date.now().toString())
-        .digest("hex");
+        .digest('hex');
       securityUtils.getPasswordHash(req.body.password).then(result => {
         // Create an object of this new user to store his info into the database
         const userToStore = {
           firstname: req.body.firstname,
           lastname: req.body.lastname,
           email: req.body.email,
-          groups: ["Work", "Finance", "Personal", "College", "Errands", "Misc"],
+          // TODO: Groups are currently hardcoded. Would like to find a way to setup mongoose model
+          //  to populate this list by default with following values
+          groups: ['Work', 'Finance', 'Personal', 'College', 'Errands', 'Misc'],
           salt: result.salt,
           passwordHash: result.hash,
           sessionToken: newSessionToken
@@ -65,31 +74,40 @@ router.post("/signup", function(req, res) {
         newUser
           .save()
           .then(() => {
-            res.send({
-              success: true,
-              message: "User successfully created.",
-              payload: {
-                firstname: req.body.firstname,
-                lastname: req.body.lastname,
-                email: req.body.email,
-                groups: [
-                  "Work",
-                  "Finance",
-                  "Personal",
-                  "College",
-                  "Errands",
-                  "Misc"
-                ],
-                sessionToken: newSessionToken
-              }
-            });
+            res
+              .cookie('email', req.body.email, {
+                signed: true,
+                httpOnly: true
+              })
+              .cookie('sessionToken', newSessionToken, {
+                httpOnly: true,
+                signed: true
+              })
+              .send({
+                success: true,
+                message: 'User successfully created.',
+                payload: {
+                  firstname: req.body.firstname,
+                  lastname: req.body.lastname,
+                  email: req.body.email,
+                  groups: [
+                    'Work',
+                    'Finance',
+                    'Personal',
+                    'College',
+                    'Errands',
+                    'Misc'
+                  ],
+                  sessionToken: newSessionToken
+                }
+              });
           })
           .catch(err => {
-            console.log("Error while performing save -> " + err);
+            console.log('Error while performing save -> ' + err);
             res.send({
               success: false,
               message:
-                "Error while performing save function. Please see the console log on the server side."
+                'Error while performing save function. Please see the console log on the server side.'
             });
           });
       });
@@ -99,7 +117,7 @@ router.post("/signup", function(req, res) {
       res.send({
         success: false,
         message:
-          "ERROR.! Email already registered. Please provide a different email.!"
+          'ERROR.! Email already registered. Please provide a different email.!'
       });
     }
   });
@@ -111,8 +129,8 @@ router.post("/signup", function(req, res) {
  *                  Password -> type: String
  * Req URI: http://localhost:4000/registration/signin
  */
-router.post("/signin", function(req, res) {
-  console.log("Route for signin hit.");
+router.post('/signin', function(req, res) {
+  console.log('Route for signin hit.');
   users.findOne({ email: req.body.email }, (error, response) => {
     // Check for any errors
     if (error) {
@@ -134,9 +152,9 @@ router.post("/signin", function(req, res) {
           if (response.sessionToken === null) {
             // Generate a sessionToken and update the lastLoggedIn entry into the database.
             const hash = crypto
-              .createHmac("sha256", req.body.email)
+              .createHmac('sha256', req.body.email)
               .update(Date.now().toString())
-              .digest("hex");
+              .digest('hex');
 
             users.updateOne(
               { email: response.email },
@@ -146,7 +164,7 @@ router.post("/signin", function(req, res) {
                   res.send({
                     success: false,
                     message:
-                      "There was an error while generating and storing the sessionToken for the user. Please try again.",
+                      'There was an error while generating and storing the sessionToken for the user. Please try again.',
                     payload: {
                       error: err
                     }
@@ -160,23 +178,32 @@ router.post("/signin", function(req, res) {
                   currentUser
                     .save()
                     .then(resp => {
-                      res.send({
-                        success: true,
-                        message: "User successfully logged in.",
-                        payload: {
-                          firstname: resp.firstname,
-                          lastname: resp.lastname,
-                          email: resp.email,
-                          groups: resp.groups,
-                          sessionToken: hash
-                        }
-                      });
+                      res
+                        .cookie('email', resp.email, {
+                          signed: true,
+                          httpOnly: true
+                        })
+                        .cookie('sessionToken', hash, {
+                          httpOnly: true,
+                          signed: true
+                        })
+                        .send({
+                          success: true,
+                          message: 'User successfully logged in.',
+                          payload: {
+                            firstname: resp.firstname,
+                            lastname: resp.lastname,
+                            email: resp.email,
+                            groups: resp.groups,
+                            sessionToken: hash
+                          }
+                        });
                     })
                     .catch(error => {
                       res.send({
                         success: false,
                         message:
-                          "There was an error while updating the user's information into the db.",
+                          "There was an error while updating the user's information into the database.",
                         payload: {
                           error: error
                         }
@@ -186,88 +213,110 @@ router.post("/signin", function(req, res) {
               }
             );
           } else {
-            res.send({
-              success: true,
-              message: "User is already logged in.",
-              payload: {
-                firstname: response.firstname,
-                email: response.email,
-                groups: response.groups,
-                sessionToken: response.sessionToken
-              }
-            });
+            res
+              .cookie('email', response.email, {
+                signed: true,
+                httpOnly: true
+              })
+              .cookie('sessionToken', response.sessionToken, {
+                httpOnly: true,
+                signed: true
+              })
+              .send({
+                success: true,
+                message: 'User is already logged in.',
+                payload: {
+                  firstname: response.firstname,
+                  email: response.email,
+                  groups: response.groups,
+                  sessionToken: response.sessionToken
+                }
+              });
           }
         })
         .catch(result => {
           res.send({
             success: false,
-            message: "Incorrect email/password combination."
+            message: 'Incorrect email/password combination.'
           });
         });
     } else {
       res.send({
         success: false,
-        message: "Incorrect email/password combination."
+        message: 'Incorrect email/password combination.'
       });
     }
   });
 });
 
 /*
- * Route to check if sessionToken is valid or not
- * Params required:  sessionToken  -> type: String
+ * Route to check if user is already logged in
+ * Verification is performed via cookie that is received in request
  * Req URI: http://localhost:4000/registration/verifyLoggedInUser
  */
-router.post("/verifyLoggedInUser", (req, res) => {
-  console.log("Route for verification hit.");
-  users.findOne({ sessionToken: req.body.sessionToken }, (err, response) => {
-    if (err) {
-      res.send({
-        success: false,
-        message:
-          "Error while accessing database. Please check your backend query."
-      });
-    }
+router.post('/verifyLoggedInUser', (req, res) => {
+  console.log('Route for verification hit.');
+  users.findOne(
+    { sessionToken: req.signedCookies.sessionToken },
+    (err, response) => {
+      if (err) {
+        res.send({
+          success: false,
+          message:
+            'Error while accessing database. Please check your backend query.'
+        });
+      }
 
-    if (!response) {
-      res.send({
-        success: false,
-        message: "Invalid Email/sessionToken."
-      });
-    } else {
-      // This user is already signed in. Send a success response.
-      res.send({
-        success: true,
-        message: "User already logged in.",
-        payload: {
-          firstname: response.firstname,
-          lastname: response.lastname,
-          email: response.email,
-          groups: response.groups,
-          sessionToken: response.sessionToken
-        }
-      });
+      if (!response) {
+        res.send({
+          success: false,
+          message: 'Invalid Email/sessionToken.'
+        });
+      } else {
+        // This user is already signed in. Send a success response.
+        res
+          .cookie('email', response.email, {
+            signed: true,
+            httpOnly: true
+          })
+          .cookie('sessionToken', response.sessionToken, {
+            signed: true,
+            httpOnly: true
+          })
+          .send({
+            success: true,
+            message: 'User already logged in.',
+            payload: {
+              firstname: response.firstname,
+              lastname: response.lastname,
+              email: response.email,
+              groups: response.groups,
+              sessionToken: response.sessionToken
+            }
+          });
+      }
     }
-  });
+  );
 });
 
 /*
  * Route for logout
- * Params required: Email         -> type: String
- *                  sessionToken  -> type: String
  * Req URI: http://localhost:4000/registration/logout
  */
-router.post("/logout", function(req, res) {
-  console.log("Route for logout hit.");
+router.post('/logout', function(req, res) {
+  console.log('Route for logout hit.');
   users.find(
-    { email: req.body.email, sessionToken: req.body.sessionToken },
+    {
+      email: req.signedCookies.email,
+      sessionToken: req.signedCookies.sessionToken
+    },
     (err, response) => {
       if (err) {
         // There's something wrong with your query for database access
         res.send({
           success: false,
           message:
-            "Error while accessing database. Please check your backend query."
+            'Error while accessing database. Please check your backend query.'
         });
       }
 
@@ -286,13 +335,15 @@ router.post("/logout", function(req, res) {
           { sessionToken: null },
           (err, resp) => {
             if (err) {
-              console.log("Error -> " + err);
               res.send({
                 success: false,
-                message: "Error while performing update query. Error -> " + err
+                message: 'Error while performing update query. Error -> ' + err
               });
             } else if (resp) {
-              res.send({ success: true, message: "Update successfull" });
+              res
+                .clearCookie('sessionToken')
+                .clearCookie('email')
+                .send({ success: true, message: 'Update successfull' });
             }
           }
         );
